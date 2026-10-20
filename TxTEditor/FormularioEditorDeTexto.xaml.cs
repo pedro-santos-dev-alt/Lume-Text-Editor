@@ -28,6 +28,8 @@ public partial class FormularioEditorDeTexto : Window
     private bool _isDarkTheme;
     private DialogoLocalizar? _findDialog;
     private string? _pendingUpdateInstallerPath;
+    private string? _workspacePath;
+    private TreeViewItem? _selectedWorkspaceItem;
     private int _zoomSize = 14;
     private int _updateCheckInProgress;
     private readonly DispatcherTimer _updateCheckTimer = new() { Interval = TimeSpan.FromHours(6) };
@@ -98,6 +100,7 @@ public partial class FormularioEditorDeTexto : Window
 
     private void NewDocument_Click(object sender, RoutedEventArgs e) => NewDocument();
     private void OpenFile_Click(object sender, RoutedEventArgs e) => OpenFile();
+    private void OpenWorkspace_Click(object sender, RoutedEventArgs e) => OpenWorkspaceFolder();
     private void SaveFile_Click(object sender, RoutedEventArgs e) => SaveFile();
     private void SaveAs_Click(object sender, RoutedEventArgs e) => SaveFileAs();
     private void Find_Click(object sender, RoutedEventArgs e) => ShowFindDialog();
@@ -151,6 +154,94 @@ public partial class FormularioEditorDeTexto : Window
         if (dialog.ShowDialog(this) != true) return;
 
         OpenDocument(dialog.FileName);
+    }
+
+    private void OpenWorkspaceFolder()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Abrir pasta de trabalho",
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true) return;
+
+        _workspacePath = dialog.FolderName;
+        _selectedWorkspaceItem = null;
+        WorkspaceTree.Items.Clear();
+        var root = CreateWorkspaceFolderItem(new DirectoryInfo(_workspacePath));
+        WorkspaceTree.Items.Add(root);
+        root.IsExpanded = true;
+        WorkspaceFolderName.Text = Path.GetFileName(_workspacePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+    }
+
+    private TreeViewItem CreateWorkspaceFolderItem(DirectoryInfo directory)
+    {
+        var item = new TreeViewItem
+        {
+            Header = new StackPanel { Orientation = Orientation.Horizontal, Children = { new TextBlock { Text = "▰", Foreground = (Brush)FindResource("AccentBrush"), Margin = new Thickness(0, 0, 6, 0) }, new TextBlock { Text = directory.Name } } },
+            Tag = directory.FullName
+        };
+        item.Items.Add(new TreeViewItem { Header = "", Tag = "__workspace_placeholder__" });
+        item.Expanded += WorkspaceFolder_Expanded;
+        return item;
+    }
+
+    private void WorkspaceFolder_Expanded(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not TreeViewItem item || item.Tag is not string path ||
+            item.Items.Count != 1 || item.Items[0] is not TreeViewItem { Tag: "__workspace_placeholder__" }) return;
+
+        item.Items.Clear();
+        try
+        {
+            var entries = new DirectoryInfo(path).EnumerateFileSystemInfos()
+                .Where(entry => (entry.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0)
+                .OrderBy(entry => entry is not DirectoryInfo)
+                .ThenBy(entry => entry.Name, StringComparer.CurrentCultureIgnoreCase);
+            foreach (var entry in entries)
+            {
+                if (entry is DirectoryInfo directory)
+                {
+                    item.Items.Add(CreateWorkspaceFolderItem(directory));
+                    continue;
+                }
+
+                if (entry is FileInfo file && (file.Extension.Equals(".txt", StringComparison.OrdinalIgnoreCase) || file.Extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase)))
+                    item.Items.Add(CreateWorkspaceFileItem(file));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            item.Items.Add(new TreeViewItem { Header = "Não foi possível ler esta pasta", IsEnabled = false });
+        }
+    }
+
+    private TreeViewItem CreateWorkspaceFileItem(FileInfo file)
+    {
+        var icon = file.Extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase) ? "▤" : "≡";
+        return new TreeViewItem
+        {
+            Header = new StackPanel { Orientation = Orientation.Horizontal, Children = { new TextBlock { Text = icon, Foreground = (Brush)FindResource("SidebarMutedBrush"), Margin = new Thickness(0, 0, 6, 0) }, new TextBlock { Text = file.Name } } },
+            Tag = file.FullName
+        };
+    }
+
+    private void WorkspaceTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
+    {
+        if (e.NewValue is not TreeViewItem item || item.Tag is not string path || !File.Exists(path)) return;
+        if (string.Equals(_filePath, path, StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedWorkspaceItem = item;
+            return;
+        }
+        if (!ConfirmSaveChanges())
+        {
+            if (_selectedWorkspaceItem is not null) _selectedWorkspaceItem.IsSelected = true;
+            else item.IsSelected = false;
+            return;
+        }
+        OpenDocument(path);
+        if (string.Equals(_filePath, path, StringComparison.OrdinalIgnoreCase)) _selectedWorkspaceItem = item;
     }
 
     private void OpenDocument(string path)

@@ -1,5 +1,5 @@
 #define AppName "Lume"
-#define AppVersion "1.2.1"
+#define AppVersion "1.3.0"
 #define AppPublisher "Lume"
 #define AppExeName "Lume.exe"
 

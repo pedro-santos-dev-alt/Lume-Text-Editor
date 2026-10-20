@@ -14,6 +14,9 @@ O Lume é um editor de texto de ambiente de trabalho, desenvolvido em C# com WPF
 - Localizar, substituir e substituir todas as ocorrências.
 - Pesquisa com distinção entre maiúsculas e minúsculas, pesquisa de palavra inteira e feedback do resultado.
 - Pesquisa enquanto escreves, com realce da correspondência no documento e indicação da linha e coluna.
+- A correspondência encontrada mantém-se selecionada e visível no editor enquanto a pesquisa está aberta.
+- Números de linha na margem do editor, sincronizados com o scroll.
+- Abrir uma pasta de trabalho e alternar entre ficheiros `.txt` e `.rtf` pelo painel lateral; as subpastas são carregadas ao expandir.
 - Temas claro e escuro, com preferência guardada entre sessões.
 - Modo de foco, zoom, contagem de palavras e caracteres e posição do cursor.
 - Recuperação de rascunhos após um fecho inesperado.
@@ -39,7 +42,7 @@ O Lume é um editor de texto de ambiente de trabalho, desenvolvido em C# com WPF
 
 ## Instalar
 
-Descarrega `Lume-Setup-1.2.1-x64.exe` na página [Releases](https://github.com/pedro-santos-dev-alt/Lume-Text-Editor/releases) e executa o instalador. O runtime do .NET está incluído. Durante a instalação podes escolher se queres disponibilizar o Lume para abrir ficheiros `.txt`. Esta versão instala as atualizações automaticamente por cima da versão atual.
+Descarrega `Lume-Setup-1.3.0-x64.exe` na página [Releases](https://github.com/pedro-santos-dev-alt/Lume-Text-Editor/releases) e executa o instalador. O runtime do .NET está incluído. Durante a instalação podes escolher se queres disponibilizar o Lume para abrir ficheiros `.txt`. Esta versão instala as atualizações automaticamente por cima da versão atual.
 
 O Windows protege a escolha da aplicação predefinida. Depois de instalares, abre **Definições → Aplicações → Aplicações predefinidas**, procura `.txt` e seleciona **Lume**. Também podes usar **Abrir com** no Explorador de Ficheiros.
 
@@ -58,4 +61,4 @@ dotnet publish TxTEditor/TxTEditor.csproj -c Release -r win-x64 --self-contained
 ISCC.exe Lume.iss
 ```
 
-O instalador é criado em `dist/Lume-Setup-1.2.1-x64.exe`. Para publicar uma versão nova, atualiza a versão no projeto e em `Lume.iss`, cria uma tag `vX.Y.Z` e envia-a para o GitHub. A ação em `.github/workflows/release.yml` compila o instalador autónomo e publica-o como uma nova versão; o Lume transfere e instala essa versão automaticamente.
+O instalador é criado em `dist/Lume-Setup-1.3.0-x64.exe`. Para publicar uma versão nova, atualiza a versão no projeto e em `Lume.iss`, cria uma tag `vX.Y.Z` e envia-a para o GitHub. A ação em `.github/workflows/release.yml` compila o instalador autónomo e publica-o como uma nova versão; o Lume transfere e instala essa versão automaticamente.
