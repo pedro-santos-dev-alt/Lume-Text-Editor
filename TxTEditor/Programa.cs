@@ -1,5 +1,6 @@
 using System;
-using System.Windows.Forms;
+using System.IO;
+using System.Windows;
 
 namespace EditorDeTextoSimples
 {
@@ -8,8 +9,9 @@ namespace EditorDeTextoSimples
         [STAThread]  // Necessário para Windows Forms
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.Run(new FormularioEditorDeTexto());
+            var startupPath = Environment.GetCommandLineArgs().Skip(1).FirstOrDefault(File.Exists);
+            var application = new Application();
+            application.Run(new FormularioEditorDeTexto(startupPath));
         }
     }
 }

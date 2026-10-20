@@ -1,10 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>  <!-- Makes it a GUI app (not console) -->
+    <AssemblyName>Lume</AssemblyName>
+    <Product>Lume</Product>
+    <Version>1.1.0</Version>
+    <FileVersion>1.1.0.0</FileVersion>
+    <ApplicationIcon>Assets\Lume.ico</ApplicationIcon>
     <TargetFramework>net8.0-windows</TargetFramework>  <!-- Must include "-windows" -->
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <UseWindowsForms>true</UseWindowsForms>  <!-- Enables WinForms -->
-    <IsTrimmable>true</IsTrimmable> <!--Reducing file size test-->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 </Project>
