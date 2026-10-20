@@ -26,10 +26,14 @@ public partial class FormularioEditorDeTexto : Window
     private bool _editorMode;
     private bool _focusMode;
     private bool _isDarkTheme;
+    private DialogoLocalizar? _findDialog;
+    private string? _pendingUpdateInstallerPath;
     private int _zoomSize = 14;
     private int _updateCheckInProgress;
+    private readonly DispatcherTimer _updateCheckTimer = new() { Interval = TimeSpan.FromHours(6) };
     private readonly string _recoveryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lume", "recovery.txt");
     private readonly string _themePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lume", "theme.txt");
+    private readonly string _reopenAfterUpdatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lume", "update-reopen.txt");
     private readonly DispatcherTimer _recoveryTimer;
 
     [DllImport("dwmapi.dll", PreserveSig = true)]
@@ -49,9 +53,15 @@ public partial class FormularioEditorDeTexto : Window
         _recoveryTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(8) };
         _recoveryTimer.Tick += (_, _) => SaveRecoveryDraft();
         _recoveryTimer.Start();
-        if (!string.IsNullOrWhiteSpace(startupPath)) OpenDocument(startupPath);
+        var documentToOpen = string.IsNullOrWhiteSpace(startupPath) ? ConsumeUpdateReopenPath() : startupPath;
+        if (!string.IsNullOrWhiteSpace(documentToOpen)) OpenDocument(documentToOpen);
         else RecoverDraftIfAvailable();
-        Loaded += async (_, _) => await CheckForUpdatesAsync(showUpToDate: false);
+        _updateCheckTimer.Tick += async (_, _) => await CheckForUpdatesAsync(showUpToDate: false);
+        Loaded += async (_, _) =>
+        {
+            _updateCheckTimer.Start();
+            await CheckForUpdatesAsync(showUpToDate: false);
+        };
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -227,6 +237,7 @@ public partial class FormularioEditorDeTexto : Window
             _dirty = false;
             DeleteRecoveryDraft();
             UpdateDocumentState();
+            ApplyPendingUpdateIfReady();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
@@ -249,6 +260,8 @@ public partial class FormularioEditorDeTexto : Window
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         if (!ConfirmSaveChanges()) { e.Cancel = true; return; }
+        if (_pendingUpdateInstallerPath is not null) StartPendingUpdate();
+        _updateCheckTimer.Stop();
         _recoveryTimer.Stop();
         DeleteRecoveryDraft();
     }
@@ -304,13 +317,34 @@ public partial class FormularioEditorDeTexto : Window
     private void ShowFindDialog()
     {
         if (!_editorMode) return;
+        if (_findDialog is { IsVisible: true })
+        {
+            _findDialog.Activate();
+            _findDialog.FindBox.Focus();
+            return;
+        }
+
         var dialog = new DialogoLocalizar(Editor.Selection.Text, _isDarkTheme) { Owner = this };
+        _findDialog = dialog;
+        dialog.Closed += (_, _) =>
+        {
+            _findDialog = null;
+            Editor.Focus();
+        };
         dialog.FindRequested += (_, args) =>
         {
+            if (string.IsNullOrWhiteSpace(args.Query))
+            {
+                var caret = Editor.Selection.End;
+                Editor.Selection.Select(caret, caret);
+                dialog.SetFeedback("Escreve o texto que pretendes localizar.");
+                return;
+            }
+
             var found = FindNext(args);
-            dialog.SetFeedback(string.IsNullOrWhiteSpace(args.Query)
-                ? "Escreve o texto que pretendes localizar."
-                : found ? "Correspondência encontrada." : "Não foram encontradas mais correspondências.", found);
+            dialog.SetFeedback(found
+                ? $"Correspondência encontrada · {GetSelectionLocation()}."
+                : "Não foram encontradas correspondências.", found);
         };
         dialog.ReplaceRequested += (_, args) =>
         {
@@ -322,12 +356,24 @@ public partial class FormularioEditorDeTexto : Window
             var count = ReplaceAll(args);
             dialog.SetFeedback(count == 1 ? "1 ocorrência substituída." : $"{count} ocorrências substituídas.", count > 0);
         };
-        dialog.ShowDialog();
-        Editor.Focus();
+        dialog.Show();
+        dialog.Activate();
+    }
+
+    private string GetSelectionLocation()
+    {
+        var text = BuildSearchText();
+        var index = _textStarts.FindIndex(pointer => pointer.CompareTo(Editor.Selection.Start) >= 0);
+        if (index < 0) index = text.Length;
+        var prefix = text[..Math.Min(index, text.Length)];
+        var line = prefix.Count(character => character == '\n') + 1;
+        var column = prefix.Length - prefix.LastIndexOf('\n');
+        return $"linha {line}, coluna {column}";
     }
 
     private async Task CheckForUpdatesAsync(bool showUpToDate)
     {
+        if (_pendingUpdateInstallerPath is not null) return;
         if (Interlocked.Exchange(ref _updateCheckInProgress, 1) != 0) return;
 
         try
@@ -341,13 +387,45 @@ public partial class FormularioEditorDeTexto : Window
                 return;
             }
 
-            var answer = MessageBox.Show(this,
-                $"Está disponível a versão {update.Version} do Lume.\n\nQueres transferir e instalar a atualização agora? A instalação atual será atualizada automaticamente.",
-                "Atualização disponível", MessageBoxButton.YesNo, MessageBoxImage.Information);
-            if (answer != MessageBoxResult.Yes) return;
-
+            SaveState.Text = $"A transferir o Lume {update.Version}…";
             var installerPath = await AtualizadorLume.DownloadAndVerifyAsync(update);
-            if (_dirty && !ConfirmSaveChanges()) return;
+            _pendingUpdateInstallerPath = installerPath;
+            if (_dirty)
+                SaveState.Text = "Atualização pronta · guarda o documento para instalar";
+            else
+                StartPendingUpdate();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or InvalidDataException or JsonException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            UpdateDocumentState();
+            if (showUpToDate)
+                MessageBox.Show(this, $"Não foi possível verificar ou instalar a atualização.\n\n{ex.Message}",
+                    "Atualizações do Lume", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _updateCheckInProgress, 0);
+        }
+    }
+
+    private void ApplyPendingUpdateIfReady()
+    {
+        if (!_dirty && _pendingUpdateInstallerPath is not null)
+            StartPendingUpdate();
+    }
+
+    private void StartPendingUpdate()
+    {
+        if (_pendingUpdateInstallerPath is null) return;
+
+        var installerPath = _pendingUpdateInstallerPath;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_filePath) && File.Exists(_filePath))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_reopenAfterUpdatePath)!);
+                File.WriteAllText(_reopenAfterUpdatePath, _filePath, Encoding.UTF8);
+            }
 
             var startInfo = new ProcessStartInfo(installerPath)
             {
@@ -359,17 +437,30 @@ public partial class FormularioEditorDeTexto : Window
             startInfo.ArgumentList.Add("/NORESTART");
             startInfo.ArgumentList.Add("/CLOSEAPPLICATIONS");
             Process.Start(startInfo);
+            _pendingUpdateInstallerPath = null;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or InvalidDataException or JsonException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            if (showUpToDate)
-                MessageBox.Show(this, $"Não foi possível verificar ou instalar a atualização.\n\n{ex.Message}",
-                    "Atualizações do Lume", MessageBoxButton.OK, MessageBoxImage.Warning);
+            try { if (File.Exists(_reopenAfterUpdatePath)) File.Delete(_reopenAfterUpdatePath); }
+            catch (IOException) { }
+            _pendingUpdateInstallerPath = null;
+            SaveState.Text = "Não foi possível iniciar a atualização";
+            MessageBox.Show(this, $"A atualização foi transferida, mas não foi possível iniciá-la.\n\n{ex.Message}",
+                "Atualizações do Lume", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
-        finally
+    }
+
+    private string? ConsumeUpdateReopenPath()
+    {
+        try
         {
-            Interlocked.Exchange(ref _updateCheckInProgress, 0);
+            if (!File.Exists(_reopenAfterUpdatePath)) return null;
+            var path = File.ReadAllText(_reopenAfterUpdatePath, Encoding.UTF8).Trim();
+            File.Delete(_reopenAfterUpdatePath);
+            return File.Exists(path) ? path : null;
         }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
     }
 
     private List<TextPointer> _textStarts = [];
@@ -439,7 +530,6 @@ public partial class FormularioEditorDeTexto : Window
     {
         if (index < 0 || index + length > _textStarts.Count) return;
         Editor.Selection.Select(_textStarts[index], _textEnds[index + length - 1]);
-        Editor.Focus();
     }
 
     private bool ReplaceCurrent(FindEventArgs args)
@@ -571,6 +661,10 @@ public partial class FormularioEditorDeTexto : Window
         Editor.Background = (Brush)Resources["SurfaceBrush"];
         Editor.Foreground = (Brush)Resources["TextPrimaryBrush"];
         Editor.Document.Foreground = Editor.Foreground;
+        Editor.SelectionBrush = (Brush)Resources["AccentBrush"];
+        Editor.SelectionTextBrush = Brushes.White;
+        Editor.SelectionOpacity = 0.82;
+        _findDialog?.SetTheme(_isDarkTheme);
         ThemeButtonLabel.Text = _isDarkTheme ? "Tema claro" : "Tema escuro";
         UpdateCaptionColors();
 

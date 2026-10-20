@@ -15,19 +15,10 @@
             <Setter Property="Foreground" Value="{DynamicResource DialogTextBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource DialogBorderBrush}" />
             <Setter Property="CaretBrush" Value="{DynamicResource DialogAccentBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Surface" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10" SnapsToDevicePixels="True">
-                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Surface" Property="BorderBrush" Value="{DynamicResource DialogAccentBrush}" /></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+            <Setter Property="SelectionBrush" Value="{DynamicResource DialogAccentBrush}" />
+            <Setter Property="SelectionTextBrush" Value="White" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         </Style>
         <Style x:Key="DialogButton" TargetType="Button">
             <Setter Property="Height" Value="38" />
@@ -81,9 +72,13 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="112" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="52" /></Grid.RowDefinitions>
             <TextBlock Text="Localizar" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource DialogTextBrush}" />
-            <TextBox x:Name="FindBox" Grid.Column="1" Style="{StaticResource DialogTextBox}" />
+            <Border x:Name="FindSurface" Grid.Column="1" Background="{DynamicResource DialogInputBrush}" BorderBrush="{DynamicResource DialogBorderBrush}" BorderThickness="1" CornerRadius="10">
+                <TextBox x:Name="FindBox" Style="{StaticResource DialogTextBox}" />
+            </Border>
             <TextBlock Grid.Row="1" Text="Substituir por" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{DynamicResource DialogTextBrush}" />
-            <TextBox x:Name="ReplaceBox" Grid.Row="1" Grid.Column="1" Style="{StaticResource DialogTextBox}" />
+            <Border x:Name="ReplaceSurface" Grid.Row="1" Grid.Column="1" Background="{DynamicResource DialogInputBrush}" BorderBrush="{DynamicResource DialogBorderBrush}" BorderThickness="1" CornerRadius="10">
+                <TextBox x:Name="ReplaceBox" Style="{StaticResource DialogTextBox}" />
+            </Border>
         </Grid>
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="112,10,0,0">

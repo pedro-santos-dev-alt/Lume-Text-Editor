@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -24,6 +25,15 @@ public partial class DialogoLocalizar : Window
         SetTheme(isDarkTheme);
         FindBox.Text = initialText;
         FindBox.SelectAll();
+        FindBox.TextChanged += (_, _) => Raise(FindRequested);
+        FindBox.GotKeyboardFocus += (_, _) => SetInputFocus(FindSurface, true);
+        FindBox.LostKeyboardFocus += (_, _) => SetInputFocus(FindSurface, false);
+        ReplaceBox.GotKeyboardFocus += (_, _) => SetInputFocus(ReplaceSurface, true);
+        ReplaceBox.LostKeyboardFocus += (_, _) => SetInputFocus(ReplaceSurface, false);
+        MatchCaseBox.Checked += SearchOptionChanged;
+        MatchCaseBox.Unchecked += SearchOptionChanged;
+        WholeWordBox.Checked += SearchOptionChanged;
+        WholeWordBox.Unchecked += SearchOptionChanged;
         FindBox.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Enter) { Raise(FindRequested); e.Handled = true; }
@@ -39,6 +49,10 @@ public partial class DialogoLocalizar : Window
     private void Replace_Click(object sender, RoutedEventArgs e) => Raise(ReplaceRequested);
     private void ReplaceAll_Click(object sender, RoutedEventArgs e) => Raise(ReplaceAllRequested);
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
+    private void SearchOptionChanged(object sender, RoutedEventArgs e) => Raise(FindRequested);
+
+    private void SetInputFocus(Border surface, bool focused) =>
+        surface.BorderBrush = (Brush)Resources[focused ? "DialogAccentBrush" : "DialogBorderBrush"];
 
     public void SetFeedback(string message, bool isSuccess = false)
     {
@@ -50,7 +64,7 @@ public partial class DialogoLocalizar : Window
 
     private bool isDarkTheme;
 
-    private void SetTheme(bool dark)
+    public void SetTheme(bool dark)
     {
         isDarkTheme = dark;
         var colors = dark
@@ -71,6 +85,8 @@ public partial class DialogoLocalizar : Window
 
         foreach (var (key, value) in colors)
             Resources[key] = Brush(value);
+        FindSurface.BorderBrush = (Brush)Resources[FindBox.IsKeyboardFocused ? "DialogAccentBrush" : "DialogBorderBrush"];
+        ReplaceSurface.BorderBrush = (Brush)Resources[ReplaceBox.IsKeyboardFocused ? "DialogAccentBrush" : "DialogBorderBrush"];
     }
 
     private static SolidColorBrush Brush(string color) =>
