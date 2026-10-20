@@ -1,0 +1,41 @@
+name: Build and publish Lume
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Obter código
+        uses: actions/checkout@v4
+
+      - name: Preparar .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Instalar Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress --yes
+
+      - name: Publicar aplicação autónoma
+        shell: pwsh
+        run: dotnet publish TxTEditor/TxTEditor.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o TxTEditor/publish/win-x64
+
+      - name: Criar instalador
+        shell: pwsh
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" Lume.iss'
+
+      - name: Publicar versão no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Lume ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/Lume-Setup-*-x64.exe

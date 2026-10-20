@@ -1,7 +1,10 @@
 using Microsoft.Win32;
+using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,6 +27,7 @@ public partial class FormularioEditorDeTexto : Window
     private bool _focusMode;
     private bool _isDarkTheme;
     private int _zoomSize = 14;
+    private int _updateCheckInProgress;
     private readonly string _recoveryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lume", "recovery.txt");
     private readonly string _themePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Lume", "theme.txt");
     private readonly DispatcherTimer _recoveryTimer;
@@ -47,6 +51,7 @@ public partial class FormularioEditorDeTexto : Window
         _recoveryTimer.Start();
         if (!string.IsNullOrWhiteSpace(startupPath)) OpenDocument(startupPath);
         else RecoverDraftIfAvailable();
+        Loaded += async (_, _) => await CheckForUpdatesAsync(showUpToDate: false);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -102,6 +107,7 @@ public partial class FormularioEditorDeTexto : Window
     private void ZoomReset_Click(object sender, RoutedEventArgs e) => SetZoom(14);
     private void ToggleFocus_Click(object sender, RoutedEventArgs e) => ToggleFocusMode();
     private void ThemeButton_Click(object sender, RoutedEventArgs e) => ToggleTheme();
+    private async void CheckForUpdates_Click(object sender, RoutedEventArgs e) => await CheckForUpdatesAsync(showUpToDate: true);
 
     private void NewDocument()
     {
@@ -298,12 +304,72 @@ public partial class FormularioEditorDeTexto : Window
     private void ShowFindDialog()
     {
         if (!_editorMode) return;
-        var dialog = new DialogoLocalizar(Editor.Selection.Text) { Owner = this };
-        dialog.FindRequested += (_, args) => FindNext(args);
-        dialog.ReplaceRequested += (_, args) => ReplaceCurrent(args);
-        dialog.ReplaceAllRequested += (_, args) => ReplaceAll(args);
+        var dialog = new DialogoLocalizar(Editor.Selection.Text, _isDarkTheme) { Owner = this };
+        dialog.FindRequested += (_, args) =>
+        {
+            var found = FindNext(args);
+            dialog.SetFeedback(string.IsNullOrWhiteSpace(args.Query)
+                ? "Escreve o texto que pretendes localizar."
+                : found ? "Correspondência encontrada." : "Não foram encontradas mais correspondências.", found);
+        };
+        dialog.ReplaceRequested += (_, args) =>
+        {
+            var replaced = ReplaceCurrent(args);
+            dialog.SetFeedback(replaced ? "Texto substituído. A procurar a ocorrência seguinte." : "Não havia uma ocorrência selecionada para substituir.", replaced);
+        };
+        dialog.ReplaceAllRequested += (_, args) =>
+        {
+            var count = ReplaceAll(args);
+            dialog.SetFeedback(count == 1 ? "1 ocorrência substituída." : $"{count} ocorrências substituídas.", count > 0);
+        };
         dialog.ShowDialog();
         Editor.Focus();
+    }
+
+    private async Task CheckForUpdatesAsync(bool showUpToDate)
+    {
+        if (Interlocked.Exchange(ref _updateCheckInProgress, 1) != 0) return;
+
+        try
+        {
+            var update = await AtualizadorLume.CheckAsync();
+            if (update is null)
+            {
+                if (showUpToDate)
+                    MessageBox.Show(this, "Já tens a versão mais recente do Lume.", "Atualizações do Lume",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var answer = MessageBox.Show(this,
+                $"Está disponível a versão {update.Version} do Lume.\n\nQueres transferir e instalar a atualização agora? A instalação atual será atualizada automaticamente.",
+                "Atualização disponível", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (answer != MessageBoxResult.Yes) return;
+
+            var installerPath = await AtualizadorLume.DownloadAndVerifyAsync(update);
+            if (_dirty && !ConfirmSaveChanges()) return;
+
+            var startInfo = new ProcessStartInfo(installerPath)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = Path.GetDirectoryName(installerPath)!
+            };
+            startInfo.ArgumentList.Add("/SILENT");
+            startInfo.ArgumentList.Add("/SUPPRESSMSGBOXES");
+            startInfo.ArgumentList.Add("/NORESTART");
+            startInfo.ArgumentList.Add("/CLOSEAPPLICATIONS");
+            Process.Start(startInfo);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or InvalidDataException or JsonException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            if (showUpToDate)
+                MessageBox.Show(this, $"Não foi possível verificar ou instalar a atualização.\n\n{ex.Message}",
+                    "Atualizações do Lume", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _updateCheckInProgress, 0);
+        }
     }
 
     private List<TextPointer> _textStarts = [];
@@ -338,16 +404,21 @@ public partial class FormularioEditorDeTexto : Window
         return text.ToString();
     }
 
-    private void FindNext(FindEventArgs args)
+    private bool FindNext(FindEventArgs args)
     {
-        if (string.IsNullOrEmpty(args.Query)) return;
+        if (string.IsNullOrEmpty(args.Query)) return false;
         var text = BuildSearchText();
-        var start = _textStarts.FindIndex(p => p.CompareTo(Editor.Selection.End) >= 0);
+        var selectionText = Editor.Selection.Text;
+        var selectedQuery = string.Compare(selectionText, args.Query, !args.MatchCase,
+            System.Globalization.CultureInfo.CurrentCulture) == 0;
+        var searchFrom = selectedQuery ? Editor.Selection.End : Editor.Selection.Start;
+        var start = _textStarts.FindIndex(p => p.CompareTo(searchFrom) >= 0);
         if (start < 0) start = 0;
         var index = FindIndex(text, args.Query, start, args);
         if (index < 0 && start > 0) index = FindIndex(text, args.Query, 0, args);
-        if (index < 0) { System.Media.SystemSounds.Beep.Play(); return; }
+        if (index < 0) { System.Media.SystemSounds.Beep.Play(); return false; }
         SelectMatch(index, args.Query.Length);
+        return true;
     }
 
     private static int FindIndex(string text, string query, int start, FindEventArgs options)
@@ -371,18 +442,24 @@ public partial class FormularioEditorDeTexto : Window
         Editor.Focus();
     }
 
-    private void ReplaceCurrent(FindEventArgs args)
+    private bool ReplaceCurrent(FindEventArgs args)
     {
-        if (args.Query.Length == 0) return;
+        if (args.Query.Length == 0) return false;
         var selected = Editor.Selection.Text;
-        if (string.Compare(selected, args.Query, !args.MatchCase, System.Globalization.CultureInfo.CurrentCulture) == 0)
-            Editor.Selection.Text = args.Replacement;
+        if (string.Compare(selected, args.Query, !args.MatchCase, System.Globalization.CultureInfo.CurrentCulture) != 0)
+        {
+            var found = FindNext(args);
+            if (!found) return false;
+        }
+
+        Editor.Selection.Text = args.Replacement;
         FindNext(args);
+        return true;
     }
 
-    private void ReplaceAll(FindEventArgs args)
+    private int ReplaceAll(FindEventArgs args)
     {
-        if (args.Query.Length == 0) return;
+        if (args.Query.Length == 0) return 0;
         var text = BuildSearchText();
         var matches = new List<int>();
         var index = 0;
@@ -397,6 +474,7 @@ public partial class FormularioEditorDeTexto : Window
             SelectMatch(matches[i], args.Query.Length);
             Editor.Selection.Text = args.Replacement;
         }
+        return matches.Count;
     }
 
     private void PrintFile()

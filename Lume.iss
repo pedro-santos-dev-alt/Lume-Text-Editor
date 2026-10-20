@@ -1,5 +1,5 @@
 #define AppName "Lume"
-#define AppVersion "1.1.0"
+#define AppVersion "1.2.0"
 #define AppPublisher "Lume"
 #define AppExeName "Lume.exe"
 
@@ -49,4 +49,4 @@ Root: HKCU; Subkey: "Software\Lume\Capabilities\FileAssociations"; ValueType: st
 Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "Lume"; ValueData: "Software\Lume\Capabilities"; Flags: uninsdeletevalue; Tasks: txtassociation
 
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "Abrir o Lume"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#AppExeName}"; Description: "Abrir o Lume"; Flags: postinstall nowait

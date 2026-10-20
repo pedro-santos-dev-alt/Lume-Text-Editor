@@ -285,6 +285,8 @@
                     <Separator />
                     <MenuItem Header="Alternar modo de foco" InputGestureText="F11" Click="ToggleFocus_Click" />
                     <MenuItem Header="Alternar tema claro/escuro" InputGestureText="Ctrl+Shift+T" Click="ThemeButton_Click" />
+                    <Separator />
+                    <MenuItem Header="Verificar atualizações…" Click="CheckForUpdates_Click" />
                 </MenuItem>
             </Menu>
 
