@@ -1,5 +1,5 @@
 #define AppName "Lume"
-#define AppVersion "1.3.2"
+#define AppVersion "1.3.3"
 #define AppPublisher "Lume"
 #define AppExeName "Lume.exe"
 
@@ -33,6 +33,7 @@ Name: "txtassociation"; Description: "Disponibilizar o Lume para abrir ficheiros
 
 [Files]
 Source: "TxTEditor\publish\win-x64\*"; Excludes: "*.pdb"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "MicrosoftEdgeWebView2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall
 
 [Icons]
 Name: "{autoprograms}\Lume"; Filename: "{app}\{#AppExeName}"
@@ -49,4 +50,5 @@ Root: HKCU; Subkey: "Software\Lume\Capabilities\FileAssociations"; ValueType: st
 Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "Lume"; ValueData: "Software\Lume\Capabilities"; Flags: uninsdeletevalue; Tasks: txtassociation
 
 [Run]
+Filename: "{tmp}\MicrosoftEdgeWebView2Setup.exe"; Parameters: "/silent /install"; StatusMsg: "A preparar o motor do navegador integrado..."; Flags: waituntilterminated runhidden
 Filename: "{app}\{#AppExeName}"; Description: "Abrir o Lume"; Flags: postinstall nowait

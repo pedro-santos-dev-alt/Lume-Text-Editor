@@ -101,6 +101,7 @@ public partial class FormularioEditorDeTexto : Window
     private void NewDocument_Click(object sender, RoutedEventArgs e) => NewDocument();
     private void OpenFile_Click(object sender, RoutedEventArgs e) => OpenFile();
     private void OpenWorkspace_Click(object sender, RoutedEventArgs e) => OpenWorkspaceFolder();
+    private void OpenWebStudio_Click(object sender, RoutedEventArgs e) => new JanelaIdeWeb { Owner = this }.Show();
     private void SaveFile_Click(object sender, RoutedEventArgs e) => SaveFile();
     private void SaveAs_Click(object sender, RoutedEventArgs e) => SaveFileAs();
     private void Find_Click(object sender, RoutedEventArgs e) => ShowFindDialog();

@@ -294,6 +294,9 @@
                     <Button Style="{StaticResource PrimaryButton}" Height="42" Margin="0,0,0,22" Click="NewDocument_Click">
                         <StackPanel Orientation="Horizontal"><TextBlock Text="＋" FontSize="18" Margin="0,-2,8,0" /><TextBlock Text="Novo documento" FontSize="13" /></StackPanel>
                     </Button>
+                    <Button Style="{StaticResource ToolbarButton}" Height="38" Margin="0,-12,0,18" Click="OpenWebStudio_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="⌘" FontSize="16" Foreground="{DynamicResource AccentBrush}" Margin="0,0,8,0" /><TextBlock Text="Web Studio" FontSize="12" FontWeight="SemiBold" /></StackPanel>
+                    </Button>
 
                     <TextBlock Text="DOCUMENTO" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SidebarMutedBrush}" Margin="10,0,0,7" />
                     <Button Style="{StaticResource SidebarAction}" Click="OpenFile_Click">

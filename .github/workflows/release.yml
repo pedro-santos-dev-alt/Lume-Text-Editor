@@ -25,6 +25,10 @@ jobs:
         shell: pwsh
         run: choco install innosetup --no-progress --yes
 
+      - name: Transferir instalador do WebView2 Runtime
+        shell: pwsh
+        run: Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile MicrosoftEdgeWebView2Setup.exe
+
       - name: Publicar aplicação autónoma
         shell: pwsh
         run: dotnet publish TxTEditor/TxTEditor.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o TxTEditor/publish/win-x64
