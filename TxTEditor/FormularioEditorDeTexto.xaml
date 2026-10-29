@@ -265,14 +265,24 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,22,0,0">
-                        <Grid Margin="10,0,0,7">
+                        <Grid Margin="10,0,0,9">
                             <TextBlock Text="ESPAÇO DE TRABALHO" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource SidebarMutedBrush}" VerticalAlignment="Center" />
-                            <Button Content="＋" ToolTip="Abrir pasta" Width="25" Height="24" HorizontalAlignment="Right" Padding="0" Style="{StaticResource SidebarAction}" Click="OpenWorkspace_Click" />
+                            <Border Background="{DynamicResource AccentSoftBrush}" CornerRadius="8" Padding="7,3" HorizontalAlignment="Right">
+                                <TextBlock Text="PASTA" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource AccentBrush}" />
+                            </Border>
                         </Grid>
-                        <Button Style="{StaticResource SidebarAction}" Height="34" Click="OpenWorkspace_Click">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="▰" FontSize="14" Foreground="{DynamicResource AccentBrush}" Width="25" /><TextBlock Text="Abrir pasta…" /></StackPanel>
+                        <Button Style="{StaticResource PrimaryButton}" Height="40" Margin="2,0,2,9" Click="OpenWorkspace_Click">
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <TextBlock Text="▰" FontSize="14" Margin="0,0,8,0" />
+                                <TextBlock Text="Abrir pasta…" FontSize="12" />
+                            </StackPanel>
                         </Button>
-                        <TextBlock x:Name="WorkspaceFolderName" Text="Abre uma pasta para ver os ficheiros." TextWrapping="Wrap" FontSize="10" Foreground="{DynamicResource SidebarMutedBrush}" Margin="10,4,5,5" />
+                        <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="9" Padding="10,9" Margin="2,0,2,5">
+                            <StackPanel>
+                                <TextBlock Text="PASTA ATUAL" FontSize="8" FontWeight="Bold" Foreground="{DynamicResource SidebarMutedBrush}" Margin="0,0,0,4" />
+                                <TextBlock x:Name="WorkspaceFolderName" Text="Nenhuma pasta selecionada" TextWrapping="Wrap" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SidebarTextBrush}" />
+                            </StackPanel>
+                        </Border>
                         <TreeView x:Name="WorkspaceTree" Style="{StaticResource WorkspaceTree}" MaxHeight="320" SelectedItemChanged="WorkspaceTree_SelectedItemChanged" />
                     </StackPanel>
                 </StackPanel>
