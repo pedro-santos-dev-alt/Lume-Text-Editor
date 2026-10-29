@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -156,6 +156,40 @@ public partial class FormularioEditorDeTexto : Window
         OpenDocument(dialog.FileName);
     }
 
+    private static FrameworkElement CreateFolderIcon()
+    {
+        var path = new System.Windows.Shapes.Path
+        {
+            Data = Geometry.Parse("M 1.5,2.5 C 1.5,1.95 1.95,1.5 2.5,1.5 L 5.5,1.5 C 5.8,1.5 6.1,1.7 6.3,1.9 L 7.3,3.1 C 7.5,3.3 7.8,3.5 8.2,3.5 L 12.5,3.5 C 13.05,3.5 13.5,3.95 13.5,4.5 L 13.5,11.5 C 13.5,12.05 13.05,12.5 12.5,12.5 L 2.5,12.5 C 1.95,12.5 1.5,12.05 1.5,11.5 Z"),
+            Width = 15,
+            Height = 13,
+            Stretch = Stretch.Uniform,
+            Margin = new Thickness(0, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        path.SetResourceReference(System.Windows.Shapes.Shape.FillProperty, "AccentBrush");
+        return path;
+    }
+
+    private static FrameworkElement CreateFileIcon(bool isRtf)
+    {
+        var path = new System.Windows.Shapes.Path
+        {
+            Data = Geometry.Parse("M 2.5,1 C 2.5,0.7 2.7,0.5 3,0.5 L 8.5,0.5 L 12.5,4.5 L 12.5,13 C 12.5,13.3 12.3,13.5 12,13.5 L 3,13.5 C 2.7,13.5 2.5,13.3 2.5,13 Z M 8,0.5 L 8,4.5 L 12,4.5"),
+            StrokeThickness = 1.3,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+            Width = 13,
+            Height = 14,
+            Stretch = Stretch.Uniform,
+            Margin = new Thickness(0, 0, 7, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        path.SetResourceReference(System.Windows.Shapes.Shape.StrokeProperty, isRtf ? "AccentBrush" : "SidebarMutedBrush");
+        return path;
+    }
+
     private void OpenWorkspaceFolder()
     {
         var dialog = new OpenFolderDialog
@@ -171,14 +205,29 @@ public partial class FormularioEditorDeTexto : Window
         var root = CreateWorkspaceFolderItem(new DirectoryInfo(_workspacePath));
         WorkspaceTree.Items.Add(root);
         root.IsExpanded = true;
-        WorkspaceFolderName.Text = Path.GetFileName(_workspacePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var folderName = Path.GetFileName(_workspacePath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        WorkspaceFolderName.Text = string.IsNullOrEmpty(folderName) ? _workspacePath : folderName;
     }
 
     private TreeViewItem CreateWorkspaceFolderItem(DirectoryInfo directory)
     {
+        var label = new TextBlock
+        {
+            Text = directory.Name,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "SidebarTextBrush");
+
+        var header = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children = { CreateFolderIcon(), label }
+        };
+
         var item = new TreeViewItem
         {
-            Header = new StackPanel { Orientation = Orientation.Horizontal, Children = { new TextBlock { Text = "▰", Foreground = (Brush)FindResource("AccentBrush"), Margin = new Thickness(0, 0, 6, 0) }, new TextBlock { Text = directory.Name } } },
+            Header = header,
             Tag = directory.FullName
         };
         item.Items.Add(new TreeViewItem { Header = "", Tag = "__workspace_placeholder__" });
@@ -212,16 +261,37 @@ public partial class FormularioEditorDeTexto : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            item.Items.Add(new TreeViewItem { Header = "Não foi possível ler esta pasta", IsEnabled = false });
+            var errorLabel = new TextBlock
+            {
+                Text = "N\u00E3o foi poss\u00EDvel ler esta pasta",
+                FontSize = 11,
+                FontStyle = FontStyles.Italic
+            };
+            errorLabel.SetResourceReference(TextBlock.ForegroundProperty, "SidebarMutedBrush");
+            item.Items.Add(new TreeViewItem { Header = errorLabel, IsEnabled = false });
         }
     }
 
     private TreeViewItem CreateWorkspaceFileItem(FileInfo file)
     {
-        var icon = file.Extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase) ? "▤" : "≡";
+        var isRtf = file.Extension.Equals(".rtf", StringComparison.OrdinalIgnoreCase);
+        var label = new TextBlock
+        {
+            Text = file.Name,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "SidebarTextBrush");
+
+        var header = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Children = { CreateFileIcon(isRtf), label }
+        };
+
         return new TreeViewItem
         {
-            Header = new StackPanel { Orientation = Orientation.Horizontal, Children = { new TextBlock { Text = icon, Foreground = (Brush)FindResource("SidebarMutedBrush"), Margin = new Thickness(0, 0, 6, 0) }, new TextBlock { Text = file.Name } } },
+            Header = header,
             Tag = file.FullName
         };
     }
